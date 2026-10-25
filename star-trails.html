@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html,body{margin:0}</style>
+<title>Звёздные треки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-bleed long-exposure night photograph; the camera's instruments sit in the corners like a viewfinder overlay */
+:root {
+  --night: #04060d;
+  --ink: #ece9f5;
+  --muted: rgba(236, 233, 245, .58);
+  --faint: rgba(236, 233, 245, .18);
+  --ember: #ffb46e;
+  --rec: #ff5b4d;
+  --glass: rgba(4, 6, 13, .42);
+  --display: "Cormorant Garamond", "Cormorant", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--mono);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+#view {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.pole {
+  position: fixed; left: 0; top: 0;
+  pointer-events: none;
+  transition: opacity .6s;
+}
+.pole i {
+  position: absolute; left: -12px; top: -12px;
+  width: 24px; height: 24px;
+  border: 1px solid var(--faint);
+  border-radius: 50%;
+}
+.pole span {
+  position: absolute; left: 20px; top: -7px;
+  white-space: nowrap;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ui {
+  position: fixed; inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + clamp(16px, 3vw, 36px))
+    clamp(16px, 3.4vw, 46px)
+    calc(env(safe-area-inset-bottom, 0px) + clamp(16px, 3vw, 36px));
+  pointer-events: none;
+}
+.top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 24px; flex-wrap: wrap;
+  animation: rise 1.4s .2s both;
+}
+.brand { display: grid; gap: 7px; pointer-events: auto; }
+.eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .34em; text-transform: uppercase; }
+.sub { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+
+.readout {
+  margin: 0;
+  display: grid; grid-template-columns: auto auto;
+  column-gap: 20px; row-gap: 7px;
+  font-size: 11px;
+  pointer-events: auto;
+}
+.readout div { display: contents; }
+.readout dt { color: var(--muted); text-transform: uppercase; letter-spacing: .18em; }
+.readout dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+#exp { font-size: 13px; font-weight: 500; }
+
+.bottom {
+  grid-row: 3;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 28px; flex-wrap: wrap;
+}
+.clock {
+  pointer-events: auto;
+  min-width: 0; max-width: min(44rem, 100%);
+  animation: rise 1.8s .5s both;
+}
+.date {
+  margin: 0 0 .7rem;
+  font-size: 11px; letter-spacing: .26em; text-transform: uppercase;
+  color: var(--muted);
+}
+.words {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 300; font-style: italic;
+  font-size: clamp(2.6rem, 6.6vw, 6.2rem);
+  line-height: .93;
+  letter-spacing: -.012em;
+  text-wrap: balance;
+  text-shadow: 0 2px 34px rgba(0, 0, 0, .7);
+}
+.words .part { color: var(--ember); }
+.note {
+  margin: 1.1rem 0 0;
+  max-width: 40ch;
+  font-family: var(--display);
+  font-size: 1.14rem; line-height: 1.42;
+  color: var(--muted);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, .8);
+}
+
+.controls {
+  pointer-events: auto;
+  display: grid; gap: 10px; justify-items: end;
+  animation: rise 1.4s .8s both;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.seg {
+  display: inline-flex; padding: 3px;
+  border: 1px solid var(--faint); border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.seg button {
+  font-size: 12px; padding: 7px 13px; border-radius: 999px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  transition: background .3s, color .3s;
+}
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--night); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.btn {
+  font-size: 12px; padding: 8px 15px;
+  border: 1px solid var(--faint); border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  letter-spacing: .03em;
+  transition: border-color .3s, color .3s;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.warm { color: var(--ember); border-color: rgba(255, 180, 110, .45); }
+.btn.warm:hover { border-color: var(--ember); }
+:focus-visible { outline: 1.5px solid var(--ember); outline-offset: 3px; }
+.rate { margin: 0; font-size: 10.5px; color: var(--muted); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.status {
+  margin: 0;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--muted);
+}
+.status::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--rec); box-shadow: 0 0 9px var(--rec);
+  animation: rec 1.6s ease-in-out infinite;
+}
+.status[data-state="done"]::before { background: var(--ember); box-shadow: 0 0 9px var(--ember); animation: none; }
+.status[data-state="paused"]::before { background: var(--muted); box-shadow: none; animation: none; }
+
+.math {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + clamp(16px, 3vw, 36px));
+  right: clamp(16px, 3.4vw, 46px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(16px, 3vw, 36px));
+  width: min(27rem, calc(100% - 32px));
+  overflow-y: auto;
+  padding: 26px 26px 22px;
+  border: 1px solid var(--faint); border-radius: 14px;
+  background: rgba(4, 6, 13, .78);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  animation: rise .5s both;
+}
+.math h2 {
+  margin: 0 2rem .6rem 0;
+  font-family: var(--display); font-style: italic; font-weight: 300;
+  font-size: 2rem; line-height: 1.05; text-wrap: balance;
+}
+.math .lead { margin: 0 0 1.2rem; font-family: var(--display); font-size: 1.1rem; line-height: 1.4; color: var(--muted); }
+.math dl { margin: 0; display: grid; gap: 4px; }
+.math dt { margin-top: 12px; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--ember); }
+.math dd { margin: 0; font-family: var(--display); font-size: 1.05rem; line-height: 1.42; }
+.math code { font-family: var(--mono); font-size: .82em; white-space: nowrap; color: var(--ink); }
+.math .foot { margin: 1.4rem 0 0; padding-top: 12px; border-top: 1px solid var(--faint); font-size: 11px; line-height: 1.5; color: var(--muted); }
+.math .close {
+  position: absolute; top: 14px; right: 14px;
+  width: 32px; height: 32px; border-radius: 50%;
+  font-size: 20px; line-height: 1; color: var(--muted);
+}
+.math .close:hover { color: var(--ink); }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes rec { 50% { opacity: .25; } }
+
+.place { display: flex; align-items: center; gap: 10px; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+.place select {
+  font: inherit; font-size: 12px; letter-spacing: .02em; text-transform: none;
+  color: var(--ink);
+  padding: 7px 12px;
+  border: 1px solid var(--faint); border-radius: 999px;
+  background: var(--glass);
+  cursor: pointer;
+}
+.place option { background: var(--night); color: var(--ink); }
+.math h3 {
+  margin: 1.5rem 0 0;
+  font-size: 10.5px; font-weight: 500; letter-spacing: .26em; text-transform: uppercase;
+  color: var(--muted);
+}
+.math h3:first-of-type { margin-top: .4rem; }
+.math dl.drawn dt { color: var(--muted); }
+
+@media (max-width: 680px) {
+  .top { flex-direction: column; gap: 14px; }
+  .readout { grid-template-columns: auto 1fr; }
+  .readout dd { text-align: left; }
+  .readout .cam, .readout .opt { display: none; }
+  .bottom { flex-direction: column; align-items: stretch; gap: 18px; }
+  .controls { justify-items: start; }
+  .row { justify-content: flex-start; }
+  .note { font-size: 1.02rem; }
+}
+@media (max-height: 640px) {
+  .note { display: none; }
+  .readout .opt { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="view" role="img" aria-label="Звёздные треки над горным хребтом: ночное небо над выбранным городом на длинной выдержке"></canvas>
+<div class="pole" id="pole" aria-hidden="true"><i></i><span>Полюс мира</span></div>
+
+<div class="ui">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Звёздные треки</span>
+      <span class="sub" id="sub">Длинная выдержка над хребтом</span>
+    </div>
+    <dl class="readout">
+      <div><dt>Выдержка</dt><dd id="exp">00:00:00</dd></div>
+      <div><dt>Поворот неба</dt><dd id="rot">0,0°</dd></div>
+      <div><dt>Время в кадре</dt><dd id="tnow">—</dd></div>
+      <div><dt class="opt">Ночь</dt><dd class="opt" id="night">—</dd></div>
+      <div><dt class="opt">Камера смотрит</dt><dd class="opt" id="dir">—</dd></div>
+      <div><dt>Метеоры</dt><dd id="met">0</dd></div>
+      <div><dt class="cam">Камера</dt><dd class="cam">14 мм · f/2.8 · ISO 3200</dd></div>
+    </dl>
+  </header>
+
+  <footer class="bottom">
+    <section class="clock">
+      <p class="date" id="date"></p>
+      <h1 class="words" id="words" aria-live="polite"></h1>
+      <p class="note">Это не просто сгенерированная картинка: небо над выбранным городом посчитано по астрономическим формулам, от положения Солнца до цвета каждой звезды. Нажмите на небо, чтобы повернуть камеру в ту сторону.</p>
+    </section>
+    <nav class="controls" aria-label="Управление экспозицией">
+      <label class="place" for="city">Место
+        <select id="city">
+          <option value="mur">Мурманск · 69,0° с. ш.</option>
+          <option value="spb">Санкт-Петербург · 59,9° с. ш.</option>
+          <option value="msk" selected>Москва · 55,8° с. ш.</option>
+          <option value="nsk">Новосибирск · 55,0° с. ш.</option>
+          <option value="sch">Сочи · 43,6° с. ш.</option>
+        </select>
+      </label>
+      <div class="seg" role="group" aria-label="Скорость времени">
+        <button type="button" id="s300" data-speed="300" aria-pressed="false">×300</button>
+        <button type="button" id="s1200" data-speed="1200" aria-pressed="true">×1200</button>
+        <button type="button" id="s4800" data-speed="4800" aria-pressed="false">×4800</button>
+      </div>
+      <p class="rate" id="rate">час неба за 3 секунды</p>
+      <div class="row">
+        <button type="button" class="btn" id="mathBtn" aria-expanded="false" aria-controls="math">Как это посчитано</button>
+        <button type="button" class="btn" id="pause">Пауза</button>
+        <button type="button" class="btn warm" id="reset">Новый кадр</button>
+      </div>
+      <p class="status" id="status" data-state="rec">Идёт экспозиция</p>
+    </nav>
+  </footer>
+</div>
+
+<aside class="math" id="math" hidden aria-labelledby="mathTitle">
+  <button type="button" class="close" id="mathClose" aria-label="Закрыть">×</button>
+  <h2 id="mathTitle">Как это посчитано</h2>
+  <p class="lead">Кадр строится из настоящих астрономических формул. Ниже честно разделено, что посчитано, а что нарисовано.</p>
+
+  <h3>Посчитано</h3>
+  <dl>
+    <dt>Небо над городом</dt>
+    <dd>Звёздное время считается из текущей даты по формуле среднего гринвичского звёздного времени, с долготой выбранного города. Полюс мира стоит над горизонтом на высоте, равной широте.</dd>
+    <dt>Звёздные сутки</dt>
+    <dd>Относительно звёзд Земля оборачивается за 86&nbsp;164,09&nbsp;с, поэтому небо поворачивается на 15,04° в час.</dd>
+    <dt>Яркие звёзды</dt>
+    <dd><span id="catN">58</span> самых ярких звёзд настоящие: Ковш, Кассиопея, Орион, Вега, Капелла и другие. Их координаты J2000 пересчитаны на сегодня с учётом прецессии земной оси. Полярная отстоит от полюса на 0,65° и рисует свой маленький круг.</dd>
+    <dt>Объектив 14&nbsp;мм</dt>
+    <dd>Небо проецируется прямолинейно, как в настоящем широкоугольнике: 104° по длинной стороне. Поэтому горизонт остаётся прямым, а дуги у краёв кадра вытягиваются.</dd>
+    <dt>Цвет</dt>
+    <dd>Показатель цвета B−V переводится в температуру по формуле Бальестероса, температура в спектр по закону Планка, спектр в цвет через кривые чувствительности глаза CIE 1931. Насыщенность усилена в 1,4 раза, как при обработке снимка.</dd>
+    <dt>Атмосфера</dt>
+    <dd>Толщина воздуха на пути света считается по формуле Кастена и Янга. На каждую атмосферную массу звезда теряет 0,2 звёздной величины и краснеет. Рефракция приподнимает звёзды у горизонта по формуле Сэмундссона.</dd>
+    <dt>Ночь</dt>
+    <dd>Положение Солнца считается для выбранного места. Выдержка идёт, пока Солнце ниже 18° под горизонтом, и заканчивается с рассветом. Если сейчас светло, снимается ближайшая ночь.</dd>
+    <dt>Ориониды</dt>
+    <dd>Радиант считается по дате: около RA&nbsp;95°, Dec&nbsp;+16° в максимум, со смещением 0,6° в сутки. Активность до ZHR&nbsp;20. Частота пропорциональна синусу высоты радианта, и каждый метеор летит по большому кругу прочь от него.</dd>
+    <dt>Сколько метеоров</dt>
+    <dd>Мы допускаем, что камера ловит метеоры ярче +3,5<sup>m</sup>. Поэтому их немного: за эту ночь ожидается около <span id="expMet">—</span>. Для одиночного кадра это честная цифра.</dd>
+  </dl>
+
+  <h3>Нарисовано</h3>
+  <dl class="drawn">
+    <dt>Слабые звёзды</dt>
+    <dd>Звёзды слабее 3<sup>m</sup> разбросаны случайно, но их число, яркости и цвета подобраны по статистике настоящего неба.</dd>
+    <dt>Пейзаж</dt>
+    <dd>Горы, лес, палатка, свечение городов у горизонта и цвет фона неба.</dd>
+    <dt>Не учтено</dt>
+    <dd>Луна и световое загрязнение конкретного места.</dd>
+  </dl>
+</aside>
+
+<script>
+(() => {
+  const TAU = Math.PI * 2, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  const SID = 86164.0905;            // sidereal day, s
+  const K_V = 0.2, K_BV = 0.12;      // extinction, mag per airmass
+  const LM = 3.5;                    // assumed limiting magnitude for meteors
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+
+  const view = $('view'), vctx = view.getContext('2d');
+  const sky = document.createElement('canvas'), sctx = sky.getContext('2d');
+  const trails = document.createElement('canvas'), tctx = trails.getContext('2d');
+  const fg = document.createElement('canvas'), fctx = fg.getContext('2d');
+
+  const CITIES = {
+    mur: { lat: 68.9585, lon: 33.0827, tz: 3 },
+    spb: { lat: 59.9386, lon: 30.3141, tz: 3 },
+    msk: { lat: 55.7558, lon: 37.6173, tz: 3 },
+    nsk: { lat: 55.0302, lon: 82.9204, tz: 7 },
+    sch: { lat: 43.5855, lon: 39.7231, tz: 3 }
+  };
+
+  // Bright stars, J2000: RA°, Dec°, V, B−V
+  const CAT = [
+    [37.954,89.264,1.98,.60],[222.676,74.156,2.08,1.47],[230.182,71.834,3.05,.05],
+    [165.932,61.751,1.79,1.07],[165.460,56.382,2.37,-.02],[178.458,53.695,2.44,0],[183.857,57.033,3.31,.08],
+    [193.507,55.960,1.77,-.02],[200.981,54.925,2.27,.02],[206.885,49.313,1.86,-.19],
+    [10.127,56.537,2.24,1.17],[2.295,59.150,2.28,.34],[14.177,60.717,2.47,-.15],[21.454,60.235,2.68,.13],[28.599,63.670,3.37,-.15],
+    [79.172,45.998,.08,.80],[279.235,38.784,.03,0],[310.358,45.280,1.25,.09],[305.557,40.257,2.23,.68],
+    [213.915,19.182,-.05,1.23],[68.980,16.509,.87,1.54],
+    [88.793,7.407,.50,1.85],[78.634,-8.202,.13,-.03],[81.283,6.350,1.64,-.22],[84.053,-1.202,1.69,-.18],
+    [85.190,-1.943,1.77,-.21],[83.002,-.299,2.23,-.22],[86.939,-9.670,2.09,-.17],
+    [101.287,-16.716,-1.46,0],[114.825,5.225,.34,.42],[116.329,28.026,1.14,1.00],[113.650,31.888,1.58,.03],
+    [152.093,11.967,1.35,-.11],[201.298,-11.161,.97,-.23],[297.696,8.868,.77,.22],
+    [51.081,49.861,1.79,.48],[47.042,40.956,2.12,-.05],[2.097,29.091,2.06,-.11],[17.433,35.621,2.05,1.58],
+    [30.975,42.330,2.10,1.37],[31.793,23.462,2.00,1.15],[81.573,28.608,1.65,-.13],[99.428,16.399,1.93,0],
+    [177.265,14.572,2.14,.09],[269.152,51.489,2.23,1.52],[319.645,62.586,2.45,.22],[233.672,26.715,2.23,-.02],
+    [263.734,12.560,2.08,.15],[247.352,-26.432,1.06,1.83],[344.413,-29.622,1.16,.09],[326.046,9.875,2.39,1.52],
+    [346.190,15.205,2.49,-.04],[345.944,28.083,2.42,1.67],[3.309,15.184,2.83,-.23],[10.897,-17.987,2.04,1.02],
+    [89.882,44.948,1.90,.08],[311.553,33.970,2.48,1.03],[292.680,27.960,3.05,1.13]
+  ];
+  $('catN').textContent = CAT.length;
+
+  /* ---------- astronomy ---------- */
+  const jdOf = ms => ms / 864e5 + 2440587.5;
+  function lstAt(ms, lon) {
+    const g = 280.46061837 + 360.98564736629 * (jdOf(ms) - 2451545);
+    return (((g + lon) % 360) + 360) % 360 * D2R;
+  }
+  function precess(ra, dec, jd) {  // Meeus, IAU 1976
+    const T = (jd - 2451545) / 36525, as = D2R / 3600;
+    const ze = (2306.2181 * T + .30188 * T * T) * as, z = (2306.2181 * T + 1.09468 * T * T) * as, th = (2004.3109 * T - .42665 * T * T) * as;
+    const A = Math.cos(dec) * Math.sin(ra + ze);
+    const B = Math.cos(th) * Math.cos(dec) * Math.cos(ra + ze) - Math.sin(th) * Math.sin(dec);
+    const C = Math.sin(th) * Math.cos(dec) * Math.cos(ra + ze) + Math.cos(th) * Math.sin(dec);
+    return [(Math.atan2(A, B) + z + TAU) % TAU, Math.asin(C)];
+  }
+  function sunRaDec(jd) {
+    const d = jd - 2451545, g = (357.529 + .98560028 * d) * D2R;
+    const L = (280.459 + .98564736 * d + 1.915 * Math.sin(g) + .02 * Math.sin(2 * g)) * D2R;
+    const e = (23.439 - .00000036 * d) * D2R;
+    return [Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), Math.asin(Math.sin(e) * Math.sin(L))];
+  }
+  // equatorial → local (x east, y north, z up)
+  function eqLocal(ra, dec, lst, lat) {
+    const H = lst - ra, sd = Math.sin(dec), cd = Math.cos(dec), sl = Math.sin(lat), cl = Math.cos(lat);
+    return [-cd * Math.sin(H), sd * cl - cd * Math.cos(H) * sl, sd * sl + cd * Math.cos(H) * cl];
+  }
+  function sunAlt(ms) {
+    const [ra, dec] = sunRaDec(jdOf(ms));
+    return Math.asin(eqLocal(ra, dec, lstAt(ms, city.lon), city.lat * D2R)[2]) * R2D;
+  }
+  const airmass = h => 1 / (Math.sin(h * D2R) + .50572 * Math.pow(h + 6.07995, -1.6364)); // Kasten & Young
+  function orionids(ms) {
+    const y = new Date(ms).getUTCFullYear(), dd = (ms - Date.UTC(y, 9, 21, 14)) / 864e5;
+    const zhr = dd < -19.6 || dd > 17.4 ? 0 : Math.max(2, 20 * Math.exp(-.5 * (dd / 5) ** 2));
+    return { ra: (95 + .6 * dd) * D2R, dec: (16 + .05 * dd) * D2R, zhr, dd };
+  }
+
+  /* ---------- colour: B−V → T → Planck → CIE 1931 → sRGB ---------- */
+  const bvToT = bv => 4600 * (1 / (.92 * bv + 1.7) + 1 / (.92 * bv + .62)); // Ballesteros 2012
+  function lobe(x, m, s1, s2) { const t = (x - m) / (x < m ? s1 : s2); return Math.exp(-.5 * t * t); }
+  function planckRGB(T) {
+    let X = 0, Y = 0, Z = 0;
+    for (let l = 380; l <= 780; l += 5) {
+      const lm = l * 1e-9, B = 1 / (lm ** 5 * (Math.exp(1.4388e-2 / (lm * T)) - 1));
+      X += B * (1.056 * lobe(l, 599.8, 37.9, 31) + .362 * lobe(l, 442, 16, 26.7) - .065 * lobe(l, 501.1, 20.4, 26.2));
+      Y += B * (.821 * lobe(l, 568.8, 46.9, 40.5) + .286 * lobe(l, 530.9, 16.3, 31.1));
+      Z += B * (1.217 * lobe(l, 437, 11.8, 36) + .681 * lobe(l, 459, 26, 13.8));
+    }
+    let r = 3.2406 * X - 1.5372 * Y - .4986 * Z, g = -.9689 * X + 1.8758 * Y + .0415 * Z, b = .0557 * X - .204 * Y + 1.057 * Z;
+    const mn = Math.min(r, g, b); if (mn < 0) { r -= mn; g -= mn; b -= mn; }
+    const mx = Math.max(r, g, b);
+    const enc = c => { c /= mx; return c <= .0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - .055; };
+    let R = enc(r), G = enc(g), Bl = enc(b);
+    const Lum = .2126 * R + .7152 * G + .0722 * Bl, k = 1.4;
+    return [R, G, Bl].map(v => Math.round(255 * Math.min(1, Math.max(0, Lum + (v - Lum) * k))));
+  }
+  const NC = 14, NM = 21;
+  const COLOR = Array.from({ length: NC }, (_, i) => planckRGB(bvToT(-.4 + .2 * i)));
+  const COLSTR = COLOR.map(c => `rgb(${c})`);
+  const ci = bv => Math.max(0, Math.min(NC - 1, Math.round((bv + .4) / .2)));
+  const mi = m => Math.max(0, Math.min(NM - 1, Math.floor((m + 2) * 2)));
+  // how a camera renders a star of magnitude m: flux relative to 7.5ᵐ
+  const look = m => { const b = Math.pow(10, -.4 * (m - 7.5)); return { a: Math.min(1, .16 * Math.pow(b, .42)), w: .5 + .32 * Math.log10(b) }; };
+  const APPEAR = Array.from({ length: NM }, (_, i) => look(-2 + (i + .5) / 2));
+
+  /* ---------- state ---------- */
+  let W = 0, H = 0, DPR = 1, city = CITIES.msk;
+  const cam = { az: 0, alt: 0, f: 1, cx: 0, cy: 0, F: [0, 1, 0], R: [1, 0, 0], U: [0, 0, 1] };
+  const S = {
+    speed: 1200, paused: reduce, azSet: false,
+    t0: 0, t1: 0, sim: 0, drawn: 0, done: false, doneAt: 0, fading: 0,
+    meteors: [], cnt: { or: 0, sp: 0 }, hy: 0, frac: .25, expected: 0
+  };
+  let N = 0, RA, SD, CD, MAG, BV, PX, PY, OK, heads = [];
+  const buckets = Array.from({ length: NC * NM }, () => []);
+
+  function gauss(m, s) { return m + s * Math.sqrt(-2 * Math.log(Math.random() || 1e-9)) * Math.cos(TAU * Math.random()); }
+
+  function makeStars() {
+    const jd = jdOf(S.t0), minDec = -(90 - city.lat) - 1, list = [];
+    for (const [ra, de, m, bv] of CAT) { const [r2, d2] = precess(ra * D2R, de * D2R, jd); list.push(r2, d2, m, bv); }
+    // fainter stars: N(<m) ∝ 10^(0.47m), ≈ 9 000 to 6.5ᵐ over the whole sky
+    const umin = Math.pow(10, -.47 * 4.5);
+    for (let i = 0; i < 26500; i++) {
+      const dec = Math.asin(Math.random() * 2 - 1);
+      if (dec * R2D < minDec) continue;
+      const m = 7.5 + Math.log10(umin + (1 - umin) * Math.random()) / .47;
+      const bv = Math.random() < .45 ? gauss(.05, .25) : gauss(1.05, .3);
+      list.push(Math.random() * TAU, dec, m, Math.max(-.35, Math.min(2, bv)));
+    }
+    N = list.length / 4;
+    RA = new Float64Array(N); SD = new Float64Array(N); CD = new Float64Array(N);
+    MAG = new Float32Array(N); BV = new Float32Array(N);
+    PX = new Float32Array(N); PY = new Float32Array(N); OK = new Uint8Array(N);
+    heads = [];
+    for (let j = 0; j < N; j++) {
+      RA[j] = list[j * 4]; SD[j] = Math.sin(list[j * 4 + 1]); CD[j] = Math.cos(list[j * 4 + 1]);
+      MAG[j] = list[j * 4 + 2]; BV[j] = list[j * 4 + 3];
+      if (MAG[j] < 4.3) heads.push(j);
+    }
+  }
+
+  /* ---------- camera: rectilinear 14 mm ---------- */
+  function setCam(az, alt) {
+    cam.az = az; cam.alt = alt;
+    const ca = Math.cos(alt), sa = Math.sin(alt), cz = Math.cos(az), sz = Math.sin(az);
+    cam.F = [ca * sz, ca * cz, sa]; cam.R = [cz, -sz, 0];
+    const R = cam.R, F = cam.F;
+    cam.U = [R[1] * F[2] - R[2] * F[1], R[2] * F[0] - R[0] * F[2], R[0] * F[1] - R[1] * F[0]];
+    S.hy = cam.cy + cam.f * Math.tan(alt);
+  }
+  function defaultTilt() {
+    const phi = city.lat * D2R, f = cam.f;
+    let c = Math.atan(.24 * H / f);
+    if (cam.cy - f * Math.tan(phi - c) < .15 * H) {
+      c = phi - Math.atan(.35 * H / f);
+      if (cam.cy + f * Math.tan(c) > .9 * H) c = Math.atan(.4 * H / f);
+    }
+    return c;
+  }
+  let gx = 0, gy = 0;
+  function projVec(dx, dy, dz) {
+    const F = cam.F, R = cam.R, U = cam.U;
+    const fz = F[0] * dx + F[1] * dy + F[2] * dz;
+    if (fz < .15) return false;
+    gx = cam.cx + cam.f * (R[0] * dx + R[1] * dy) / fz;
+    gy = cam.cy - cam.f * (U[0] * dx + U[1] * dy + U[2] * dz) / fz;
+    return gx > -W && gx < 2 * W && gy > -H && gy < 2 * H;
+  }
+  function unproject(sx, sy) {
+    const a = (sx - cam.cx) / cam.f, b = -(sy - cam.cy) / cam.f, F = cam.F, R = cam.R, U = cam.U;
+    const v = [F[0] + R[0] * a + U[0] * b, F[1] + R[1] * a + U[1] * b, F[2] + R[2] * a + U[2] * b];
+    const l = Math.hypot(...v); return v.map(c => c / l);
+  }
+
+  // project star j at local sidereal time; sets gx, gy, gm (apparent mag), gb (apparent B−V)
+  let gm = 0, gb = 0, galt = 0;
+  let sinL = 0, cosL = 1;
+  function proj(j, lst) {
+    const H_ = lst - RA[j], sH = Math.sin(H_), cH = Math.cos(H_), sd = SD[j], cd = CD[j];
+    let dx = -cd * sH, dy = sd * cosL - cd * cH * sinL, dz = sd * sinL + cd * cH * cosL;
+    if (dz < -.012) return false;
+    let h = Math.asin(dz) * R2D;
+    if (h < 15) { // Saemundsson refraction
+      const h2 = h + 1.02 / Math.tan((h + 10.3 / (h + 5.11)) * D2R) / 60;
+      if (h2 < .2) return false;
+      const c0 = Math.hypot(dx, dy), c1 = Math.cos(h2 * D2R);
+      dx *= c1 / c0; dy *= c1 / c0; dz = Math.sin(h2 * D2R); h = h2;
+    }
+    if (!projVec(dx, dy, dz)) return false;
+    const X = airmass(h);
+    gm = MAG[j] + K_V * X; gb = BV[j] + K_BV * X; galt = h;
+    return true;
+  }
+
+  /* ---------- trails ---------- */
+  function projectAll(ms, draw) {
+    const lst = lstAt(ms, city.lon);
+    for (let j = 0; j < N; j++) {
+      const ok = proj(j, lst);
+      if (ok && draw && OK[j] && gm < 7.8) buckets[ci(gb) * NM + mi(gm)].push(PX[j], PY[j], gx, gy);
+      if (ok) { PX[j] = gx; PY[j] = gy; }
+      OK[j] = ok ? 1 : 0;
+    }
+  }
+  function flush() {
+    tctx.globalCompositeOperation = 'lighter'; tctx.lineCap = 'butt';
+    for (let k = 0; k < buckets.length; k++) {
+      const L = buckets[k]; if (!L.length) continue;
+      const c = (k / NM) | 0, ap = APPEAR[k % NM], j = .9 + Math.random() * .2;
+      tctx.strokeStyle = `rgba(${COLOR[c]},${Math.min(1, ap.a * j)})`;
+      tctx.lineWidth = ap.w * DPR;
+      tctx.beginPath();
+      for (let i = 0; i < L.length; i += 4) { tctx.moveTo(L[i], L[i + 1]); tctx.lineTo(L[i + 2], L[i + 3]); }
+      tctx.stroke();
+      L.length = 0;
+    }
+  }
+  function trailStep(ta, tb) {
+    const deg = (tb - ta) / 1000 / SID * 360, n = Math.max(1, Math.ceil(deg / .35));
+    for (let i = 1; i <= n; i++) { projectAll(ta + (tb - ta) * i / n, true); flush(); }
+  }
+
+  /* ---------- meteors ---------- */
+  function rates(ms) {
+    const o = orionids(ms), lst = lstAt(ms, city.lon);
+    const hR = eqLocal(o.ra, o.dec, lst, city.lat * D2R)[2];
+    return {
+      or: o.zhr * Math.max(0, hR) * Math.pow(2.5, LM - 6.5) * S.frac,  // per hour, r = 2.5
+      sp: 10 * Math.pow(3, LM - 6.5) * S.frac,                         // sporadic HR ≈ 10, r = 3
+      o, lst
+    };
+  }
+  function meteorChance(ms, dtMs, instant) {
+    const r = rates(ms), h = dtMs / 3.6e6;
+    if (Math.random() < 1 - Math.exp(-r.or * h)) spawnMeteor('or', r, instant);
+    if (Math.random() < 1 - Math.exp(-r.sp * h)) spawnMeteor('sp', r, instant);
+  }
+  function spawnMeteor(type, r, instant) {
+    let Rv;
+    if (type === 'or') Rv = eqLocal(r.o.ra, r.o.dec, r.lst, city.lat * D2R);
+    else { const z = Math.random(), a = Math.random() * TAU, s = Math.sqrt(1 - z * z); Rv = [s * Math.cos(a), s * Math.sin(a), z]; }
+    for (let k = 0; k < 30; k++) {
+      const d = unproject(Math.random() * W, Math.random() * Math.min(S.hy, H));
+      if (d[2] < Math.sin(4 * D2R)) continue;
+      const cp = d[0] * Rv[0] + d[1] * Rv[1] + d[2] * Rv[2], psi = Math.acos(Math.max(-1, Math.min(1, cp)));
+      if (psi < 3 * D2R) continue;
+      const t = [d[0] * cp - Rv[0], d[1] * cp - Rv[1], d[2] * cp - Rv[2]], tl = Math.hypot(...t);
+      const m = {
+        d, t: t.map(c => c / tl),
+        L: (6 + 18 * Math.random()) * D2R * Math.sin(psi),          // apparent length ∝ sin(distance to radiant)
+        mag: Math.max(-5, LM + Math.log(Math.random() || 1e-9) / Math.log(type === 'or' ? 2.5 : 3)),
+        p: 0, dur: .2 + Math.random() * .4, head: null
+      };
+      S.cnt[type]++;
+      if (instant) { for (let i = 0; i < 24; i++) advanceMeteor(m, 1 / 24); }
+      else S.meteors.push(m);
+      return;
+    }
+  }
+  function meteorAt(m, s) {
+    const c = Math.cos(s), n = Math.sin(s);
+    const v = [m.d[0] * c + m.t[0] * n, m.d[1] * c + m.t[1] * n, m.d[2] * c + m.t[2] * n];
+    return projVec(v[0], v[1], v[2]) && v[2] > 0 ? [gx, gy, Math.asin(v[2]) * R2D] : null;
+  }
+  function advanceMeteor(m, step) {
+    const p0 = m.p, p1 = Math.min(1, m.p + step); m.p = p1;
+    const a = meteorAt(m, p0 * m.L), b = meteorAt(m, p1 * m.L);
+    if (!a || !b) { m.head = null; return; }
+    const prof = Math.sin(Math.PI * (p0 + p1) / 2), me = m.mag + K_V * airmass(b[2]), ap = look(me);
+    const al = ap.a * prof, w = ap.w * DPR * (.4 + .6 * prof);
+    tctx.globalCompositeOperation = 'lighter'; tctx.lineCap = 'butt';
+    tctx.beginPath(); tctx.moveTo(a[0], a[1]); tctx.lineTo(b[0], b[1]);
+    tctx.strokeStyle = `rgba(120,255,190,${.14 * al})`; tctx.lineWidth = w * 4; tctx.stroke();
+    tctx.strokeStyle = `rgba(240,255,248,${al})`; tctx.lineWidth = w; tctx.stroke();
+    m.head = [b[0], b[1], al];
+  }
+
+  /* ---------- night ---------- */
+  function findNight(now) {
+    const step = 120000;
+    for (const lim of [-18, -12, -6]) {
+      let t = now, k = 0;
+      while (sunAlt(t) > lim && k < 720) { t += step; k++; }
+      if (k >= 720) continue;
+      let e = t; k = 0;
+      while (sunAlt(e) <= lim && k < 720) { e += step; k++; }
+      return { t0: t, t1: e };
+    }
+    return { t0: now, t1: now + 8 * 3600e3 };
+  }
+  function expectedMeteors() {
+    let sum = 0;
+    for (let t = S.t0; t < S.t1; t += 6e5) { const r = rates(t); sum += (r.or + r.sp) * Math.min(6e5, S.t1 - t) / 3.6e6; }
+    return sum;
+  }
+
+  /* ---------- landscape & sky backdrop ---------- */
+  function mulberry(a) {
+    return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  function glow(c, x, y, r, rgb, a) {
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  function makeNoise(r) {
+    const t = new Float32Array(1024); for (let i = 0; i < 1024; i++) t[i] = r();
+    return x => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f), a = t[i & 1023]; return a + (t[(i + 1) & 1023] - a) * u; };
+  }
+  function ridge(r, base, amp, scale, sharp) {
+    const n = makeNoise(r), step = 3 * DPR, ys = [];
+    for (let x = 0; x <= W + step; x += step) {
+      let v = 0, a = 1, f = 1, norm = 0;
+      for (let o = 0; o < 6; o++) {
+        let s = n(x / scale * f + o * 37.1);
+        if (sharp && o < 3) s = 1 - Math.abs(2 * s - 1);
+        v += s * a; norm += a; a *= .5; f *= 2.1;
+      }
+      ys.push(base - amp * v / norm);
+    }
+    return { ys, step };
+  }
+  const yAt = (rd, x) => rd.ys[Math.max(0, Math.min(rd.ys.length - 1, Math.round(x / rd.step)))];
+  function fillRidge(c, rd, col) {
+    c.beginPath(); c.moveTo(0, H + 2);
+    rd.ys.forEach((y, i) => c.lineTo(i * rd.step, y));
+    c.lineTo(W, H + 2); c.closePath(); c.fillStyle = col; c.fill();
+  }
+  function band(c, y0, y1, rgb, a) {
+    const g = c.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(.55, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    c.fillStyle = g; c.fillRect(0, y0, W, y1 - y0);
+  }
+  function fir(c, x, y, h) {
+    const w = h * .34, tiers = h / DPR > 20 ? 5 : 4, R = [];
+    for (let i = 1; i <= tiers; i++) {
+      const ty = y - h + h * i / tiers * .9, tw = w * (.35 + .65 * i / tiers);
+      R.push([tw, ty]); if (i < tiers) R.push([tw * .3, ty]);
+    }
+    const lastY = R[R.length - 1][1];
+    c.beginPath(); c.moveTo(x, y - h);
+    for (const [dx, dy] of R) c.lineTo(x + dx, dy);
+    c.lineTo(x + w * .06, lastY); c.lineTo(x + w * .06, y); c.lineTo(x - w * .06, y); c.lineTo(x - w * .06, lastY);
+    for (let i = R.length - 1; i >= 0; i--) c.lineTo(x - R[i][0], R[i][1]);
+    c.closePath(); c.fill();
+  }
+  function poleScreen() {
+    const p = city.lat * D2R;
+    return projVec(0, Math.cos(p), Math.sin(p)) ? [gx, gy] : null;
+  }
+
+  function paintFg() {
+    const r = mulberry(1907), c = fctx, u = DPR, hy = S.hy;
+    const pd = cam.f * D2R / Math.cos(cam.alt) ** 2;   // px per degree near the horizon
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, W, H);
+    const farBase = hy + .4 * pd, midBase = hy + 2.4 * pd, nearBase = hy + 7 * pd;
+    const far = ridge(r, farBase, 8 * pd, 560 * u, true);
+    const mid = ridge(r, midBase, 7 * pd, 360 * u, true);
+    const near = ridge(r, nearBase, 5 * pd, 230 * u, false);
+
+    fillRidge(c, far, 'rgb(17,23,46)');
+    c.beginPath(); far.ys.forEach((y, i) => i ? c.lineTo(i * far.step, y) : c.moveTo(0, y));
+    c.strokeStyle = 'rgba(160,178,236,.11)'; c.lineWidth = u; c.stroke();
+    band(c, farBase - 3 * pd, farBase + 2 * pd, '130,146,196', .12);
+    fillRidge(c, mid, 'rgb(9,12,28)');
+    band(c, midBase - 2.5 * pd, midBase + 2 * pd, '110,124,176', .07);
+    fillRidge(c, near, 'rgb(3,4,10)');
+
+    const tx = W * (W < H ? .74 : .66), ty = yAt(near, tx) + 2 * u;
+    const cl = makeNoise(r);
+    c.fillStyle = 'rgb(3,4,10)';
+    for (let x = -10 * u; x < W + 10 * u;) {
+      const d = cl(x / (140 * u));
+      x += (2 + r() * 9) * u;
+      if (d < .42 || Math.abs(x - tx) < 50 * u) continue;
+      fir(c, x, yAt(near, x) + 2 * u, (7 + r() * 20 + (d - .42) * 44) * u);
+    }
+    glow(c, tx, ty - 6 * u, 130 * u, '255,166,90', .2);
+    glow(c, tx, ty - 5 * u, 36 * u, '255,192,124', .32);
+    c.save(); c.translate(tx, ty + u); c.scale(1, .25); glow(c, 0, 0, 70 * u, '255,170,100', .35); c.restore();
+    const tw = 13 * u, th = 14 * u;
+    let g = c.createLinearGradient(0, ty - th, 0, ty);
+    g.addColorStop(0, 'rgb(255,206,142)'); g.addColorStop(1, 'rgb(194,96,40)');
+    c.fillStyle = g;
+    c.beginPath(); c.moveTo(tx - tw, ty + u); c.lineTo(tx, ty - th); c.lineTo(tx + tw, ty + u); c.closePath(); c.fill();
+    c.fillStyle = 'rgb(255,238,200)';
+    c.beginPath(); c.moveTo(tx - 3.5 * u, ty + u); c.lineTo(tx, ty - 6 * u); c.lineTo(tx + 3.5 * u, ty + u); c.closePath(); c.fill();
+
+    const bx = tx + 32 * u, by = yAt(near, bx) + 2 * u, ax = bx, ay = by - 17 * u;
+    c.strokeStyle = 'rgb(4,4,8)'; c.lineWidth = 1.3 * u; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(ax, ay); c.lineTo(bx - 7 * u, by + u);
+    c.moveTo(ax, ay); c.lineTo(bx + 7 * u, by + u);
+    c.moveTo(ax, ay); c.lineTo(bx + 1 * u, by + 2 * u);
+    c.stroke();
+    const p = poleScreen() || [ax - 40 * u, 0];
+    c.save(); c.translate(ax, ay - 2 * u); c.rotate(Math.atan2(p[1] - ay, p[0] - ax));
+    c.fillStyle = 'rgb(4,4,8)'; c.fillRect(-4.5 * u, -3 * u, 8 * u, 6 * u); c.fillRect(3.5 * u, -2.2 * u, 4 * u, 4.4 * u);
+    c.restore();
+
+    g = c.createLinearGradient(0, H * .64, 0, H);
+    g.addColorStop(0, 'rgba(1,2,6,0)'); g.addColorStop(1, 'rgba(1,2,6,.62)');
+    c.fillStyle = g; c.fillRect(0, H * .64, W, H * .36);
+    const m = Math.hypot(W, H) / 2;
+    g = c.createRadialGradient(W / 2, H * .42, m * .45, W / 2, H * .42, m * 1.05);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+  }
+
+  function paintSky() {
+    const c = sctx, M = Math.max(W, H), hy = Math.min(S.hy, H * 1.2);
+    let g = c.createLinearGradient(0, 0, 0, hy);
+    g.addColorStop(0, '#02040b'); g.addColorStop(.55, '#060d22'); g.addColorStop(.85, '#0c1634'); g.addColorStop(1, '#1a2143');
+    c.globalCompositeOperation = 'source-over'; c.fillStyle = '#171a32'; c.fillRect(0, 0, W, H);
+    c.fillStyle = g; c.fillRect(0, 0, W, hy);
+    g = c.createLinearGradient(0, hy - H * .34, 0, hy + H * .04);
+    g.addColorStop(0, 'rgba(70,150,120,0)'); g.addColorStop(.6, 'rgba(70,150,120,.07)'); g.addColorStop(1, 'rgba(70,150,120,0)');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    glow(c, W * .16, hy + H * .1, M * .6, '255,138,96', .2);
+    glow(c, W * .92, hy + H * .1, M * .45, '120,110,210', .1);
+    const tile = document.createElement('canvas'); tile.width = tile.height = 128;
+    const tc = tile.getContext('2d'), id = tc.createImageData(128, 128);
+    for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 9; }
+    tc.putImageData(id, 0, 0);
+    c.fillStyle = c.createPattern(tile, 'repeat'); c.fillRect(0, 0, W, H);
+  }
+
+  /* ---------- exposure ---------- */
+  function newExposure(regen, pre) {
+    tctx.globalCompositeOperation = 'source-over'; tctx.clearRect(0, 0, W, H);
+    if (regen || !N) makeStars();
+    sinL = Math.sin(city.lat * D2R); cosL = Math.cos(city.lat * D2R);
+    S.sim = S.drawn = 0; S.done = false; S.fading = 0;
+    S.meteors = []; S.cnt = { or: 0, sp: 0 };
+    projectAll(S.t0, false);
+    const dur = S.t1 - S.t0;
+    if (pre) {
+      const p = Math.min(pre * 1000, dur);
+      trailStep(S.t0, S.t0 + p);
+      for (let t = 0; t < p; t += 3e5) meteorChance(S.t0 + t, Math.min(3e5, p - t), true);
+      S.sim = S.drawn = p;
+    }
+    updateReadout();
+  }
+  function placePole() {
+    const p = poleScreen(), el = $('pole');
+    const on = p && p[0] > 0 && p[0] < W && p[1] > 0 && p[1] < S.hy;
+    el.hidden = !on;
+    if (on) el.style.transform = `translate(${p[0] / DPR}px, ${p[1] / DPR}px)`;
+  }
+  function setNight() {
+    const n = findNight(Date.now());
+    S.t0 = n.t0; S.t1 = n.t1;
+    S.expected = expectedMeteors();
+    $('expMet').textContent = S.expected.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' ' + plural(S.expected);
+    $('night').textContent = clock(S.t0) + ' – ' + clock(S.t1);
+  }
+  const plural = x => { const n = Math.round(x); return n % 10 === 1 && n % 100 !== 11 ? 'метеора' : 'метеоров'; };
+
+  function setup() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.round(innerWidth * DPR); H = Math.round(innerHeight * DPR);
+    for (const c of [view, sky, trails, fg]) { c.width = W; c.height = H; }
+    cam.f = Math.max(W, H) * 14 / 36; cam.cx = W / 2; cam.cy = H / 2;
+    setCam(S.azSet ? cam.az : 0, defaultTilt());
+    const a = Math.atan(W / 2 / cam.f), b = Math.atan(H / 2 / cam.f);
+    S.frac = 4 * Math.asin(Math.sin(a) * Math.sin(b)) * Math.max(0, Math.min(1, S.hy / H)) / TAU;
+    paintFg(); paintSky(); placePole();
+    setNight();
+    newExposure(!N, reduce ? 10800 : 1500);
+  }
+
+  /* ---------- render loop ---------- */
+  function compose(now) {
+    const c = vctx, t = now * .001, lst = lstAt(S.t0 + S.sim, city.lon);
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    c.drawImage(sky, 0, 0);
+    c.globalCompositeOperation = 'lighter';
+    c.drawImage(trails, 0, 0);
+    for (const j of heads) {
+      if (!proj(j, lst) || gm > 6) continue;
+      const ap = APPEAR[mi(gm)], X = airmass(galt);
+      const tw = reduce ? 0 : (.12 + .08 * Math.min(X, 4)) * Math.sin(t * (2 + (j % 7)) + j); // scintillation grows with airmass
+      c.globalAlpha = Math.max(0, Math.min(1, ap.a * (.85 + tw)));
+      c.fillStyle = COLSTR[ci(gb)];
+      c.beginPath(); c.arc(gx, gy, ap.w * DPR * .95, 0, TAU); c.fill();
+    }
+    c.globalAlpha = 1;
+    for (const m of S.meteors) if (m.head) glow(c, m.head[0], m.head[1], 16 * DPR, '220,255,235', .55 * m.head[2]);
+    c.globalCompositeOperation = 'source-over';
+    c.drawImage(fg, 0, 0);
+  }
+
+  const DRAW_MS = .15 / 360 * SID * 1000;
+  let last = performance.now(), uiT = 0;
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    const dur = S.t1 - S.t0;
+    if (!S.paused && !S.done && !S.fading) {
+      const simDt = dt * S.speed * 1000;
+      S.sim = Math.min(dur, S.sim + simDt);
+      if (S.sim - S.drawn >= DRAW_MS || S.sim >= dur) { trailStep(S.t0 + S.drawn, S.t0 + S.sim); S.drawn = S.sim; }
+      meteorChance(S.t0 + S.sim, simDt, false);
+      if (S.sim >= dur) { S.done = true; S.doneAt = now; }
+    }
+    for (let i = S.meteors.length - 1; i >= 0; i--) {
+      const m = S.meteors[i]; advanceMeteor(m, dt / m.dur);
+      if (m.p >= 1) S.meteors.splice(i, 1);
+    }
+    if (S.done && !S.fading && now - S.doneAt > 6000) S.fading = now;
+    if (S.fading) {
+      tctx.globalCompositeOperation = 'destination-out';
+      tctx.fillStyle = 'rgba(0,0,0,.06)'; tctx.fillRect(0, 0, W, H);
+      if (now - S.fading > 2000) newExposure(false, 0);
+    }
+    compose(now);
+    if (now - uiT > 120) { uiT = now; updateReadout(); }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- readout ---------- */
+  const STATUS = { rec: 'Идёт экспозиция', done: 'Рассвет · кадр готов', paused: 'Пауза' };
+  const DIRS = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
+  function hms(s) { s = Math.floor(s); return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':'); }
+  function clock(ms) { const d = new Date(ms + city.tz * 3600e3); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); }
+  function updateReadout() {
+    $('exp').textContent = hms(S.sim / 1000);
+    $('rot').textContent = (S.sim / 1000 / SID * 360).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '°';
+    $('tnow').textContent = clock(S.t0 + S.sim);
+    const az = ((cam.az * R2D) % 360 + 360) % 360;
+    $('dir').textContent = `${DIRS[Math.round(az / 45) % 8]} · ${Math.round(az)}°, на ${Math.round(cam.alt * R2D)}° вверх`;
+    $('met').textContent = `Ориониды ${S.cnt.or} · прочие ${S.cnt.sp}`;
+    const st = S.paused ? 'paused' : (S.done || S.fading) ? 'done' : 'rec';
+    const el = $('status');
+    if (el.dataset.state !== st) { el.dataset.state = st; el.textContent = STATUS[st]; }
+  }
+
+  /* ---------- time in words ---------- */
+  const NOM = ['', 'час', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять', 'одиннадцать', 'двенадцать'];
+  const ORD = ['', 'первого', 'второго', 'третьего', 'четвёртого', 'пятого', 'шестого', 'седьмого', 'восьмого', 'девятого', 'десятого', 'одиннадцатого', 'двенадцатого'];
+  const FW = ['', 'одна', 'две', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
+  const GW = ['', 'одной', 'двух', 'трёх', 'четырёх', 'пяти', 'шести', 'семи', 'восьми', 'девяти', 'десяти', 'одиннадцати', 'двенадцати', 'тринадцати', 'четырнадцати', 'пятнадцати', 'шестнадцати', 'семнадцати', 'восемнадцати', 'девятнадцати'];
+  const numF = n => n < 20 ? FW[n] : 'двадцать' + (n % 10 ? ' ' + FW[n % 10] : '');
+  const numG = n => n < 20 ? GW[n] : 'двадцати' + (n % 10 ? ' ' + GW[n % 10] : '');
+  function minWord(n) {
+    const d = n % 10, dd = n % 100;
+    if (d === 1 && dd !== 11) return 'минута';
+    if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return 'минуты';
+    return 'минут';
+  }
+  function words(date) {
+    const h = date.getHours(), m = date.getMinutes();
+    if (m === 0 && h === 0) return ['полночь', ''];
+    if (m === 0 && h === 12) return ['полдень', ''];
+    const part = h < 4 ? 'ночи' : h < 12 ? 'утра' : h < 17 ? 'дня' : 'вечера';
+    const h12 = h % 12 || 12, next = h12 % 12 + 1;
+    let s;
+    if (m === 0) s = h12 === 1 ? 'час' : NOM[h12] + (h12 < 5 ? ' часа' : ' часов');
+    else if (m === 15) s = 'четверть ' + ORD[next];
+    else if (m === 30) s = 'половина ' + ORD[next];
+    else if (m === 45) s = 'без четверти ' + NOM[next];
+    else if (m < 30) s = numF(m) + ' ' + minWord(m) + ' ' + ORD[next];
+    else {
+      const r = 60 - m;
+      s = 'без ' + numG(r) + (r % 5 === 0 ? '' : (r % 10 === 1 && r !== 11 ? ' минуты' : ' минут')) + ' ' + NOM[next];
+    }
+    return [s, part];
+  }
+  function tick() {
+    const d = new Date(), [s, p] = words(d);
+    const html = s + (p ? ' <span class="part">' + p + '</span>' : '');
+    const el = $('words');
+    if (el.dataset.v !== html) { el.dataset.v = html; el.innerHTML = html; }
+    $('date').textContent = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }) + ' · ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+  function season() {
+    const o = orionids(Date.now()), z = Math.round(o.zhr);
+    const light = sunAlt(Date.now()) > -18 ? ' · сейчас светло, снимаем ближайшую ночь' : '';
+    $('sub').textContent = (Math.abs(o.dd) < 1.5 ? `Ночь максимума Орионид · ZHR ≈ ${z}` : o.zhr > 0 ? `Ориониды активны · ZHR ≈ ${z}` : 'Длинная выдержка над хребтом') + light;
+  }
+
+  /* ---------- controls ---------- */
+  const RATE = { 300: 'час неба за 12 секунд', 1200: 'час неба за 3 секунды', 4800: 'час неба за 0,75 секунды' };
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    S.speed = +b.dataset.speed;
+    document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $('rate').textContent = RATE[S.speed];
+  }));
+  function togglePause() {
+    S.paused = !S.paused;
+    $('pause').textContent = S.paused ? 'Продолжить' : 'Пауза';
+    updateReadout();
+  }
+  $('pause').addEventListener('click', togglePause);
+  if (S.paused) $('pause').textContent = 'Продолжить';
+  $('reset').addEventListener('click', () => newExposure(true, 300));
+  $('city').addEventListener('change', e => {
+    city = CITIES[e.target.value]; S.azSet = false; N = 0;
+    setup(); season();
+  });
+  function showMath(open) {
+    $('math').hidden = !open;
+    $('mathBtn').setAttribute('aria-expanded', String(open));
+    if (open) $('mathClose').focus(); else $('mathBtn').focus();
+  }
+  $('mathBtn').addEventListener('click', () => showMath($('math').hidden));
+  $('mathClose').addEventListener('click', () => showMath(false));
+  addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('math').hidden) showMath(false);
+    if (e.code === 'Space' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLSelectElement)) { e.preventDefault(); togglePause(); }
+  });
+  // turn the camera toward the clicked direction, keeping its tilt
+  view.addEventListener('pointerdown', e => {
+    const d = unproject(e.clientX * DPR, e.clientY * DPR);
+    S.azSet = true;
+    setCam(Math.atan2(d[0], d[1]), cam.alt);
+    paintFg(); placePole();
+    newExposure(false, 600);
+  });
+  let rt;
+  addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(setup, 200); });
+
+  setup(); season();
+  tick(); setInterval(tick, 5000);
+  requestAnimationFrame(t => { last = t; frame(t); });
+})();
+</script>
+</body>
+</html>
